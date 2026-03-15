@@ -49,7 +49,7 @@ impl OcrClient {
     pub fn new(base_url: String) -> Result<Self, AppError> {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(3))
-            .timeout(Duration::from_secs(120))
+            .timeout(Duration::from_secs(600))
             .build()?;
 
         Ok(Self {

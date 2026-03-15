@@ -45,6 +45,8 @@ cargo run -p deepseek-ocr-server --release -- \
   --max-new-tokens 512
 ```
 
+Genau so wurde der lokale Testserver fuer die erfolgreichen Smoke-Tests und den spaeteren 35-Seiten-Voll-Lauf gestartet.
+
 Danach das CLI in diesem Repo:
 
 ```bash
@@ -67,6 +69,24 @@ cargo run -- /tmp/pdf-ocr-smoke.pdf \
   --concurrent 1 \
   --no-cache
 ```
+
+Voll-Lauf auf diesem Rechner:
+
+```bash
+cargo run -- /Users/fre/dev/unfold/business-rules-sps-2025-de.pdf \
+  -o /tmp/business-rules-sps-2025-de.full.md \
+  --server http://127.0.0.1:8003/v1 \
+  --model deepseek-ocr \
+  --concurrent 1
+```
+
+Praxis-Hinweise zum CPU-Pfad:
+
+- Der Voll-Lauf mit `business-rules-sps-2025-de.pdf` (35 Seiten) wurde erfolgreich bis zum Ende durchgefuehrt.
+- Auf CPU koennen einzelne Seiten, vor allem Tabellen- oder Grafikseiten, mehrere Minuten dauern.
+- Die Ausgabedatei wird erst am Ende des gesamten Laufs geschrieben.
+- Bei `Ctrl+C` wird ein `~partial.md` geschrieben, damit bereits verarbeitete Seiten nicht verloren gehen.
+- Aktivierter Cache liegt unter `~/Library/Caches/dev.unfold.pdf-ocr/pages` auf macOS.
 
 ### Optionaler Mac-GPU-Pfad: Metal
 
@@ -142,11 +162,17 @@ Zusaetzliche Optionen:
 - `--concurrent`: maximale parallele OCR-Requests, Default `1`
 - `--no-cache`: Cache fuer diesen Lauf ignorieren
 
+Technische Hinweise:
+
+- HTTP-Requests an den OCR-Server verwenden aktuell einen grosszuegigeren Timeout, damit langsame CPU-Seiten nicht zu frueh abbrechen.
+- Fuer den OpenAI-kompatiblen `/v1`-Pfad wird `image/png` verwendet, weil der getestete Server Inline-WebP nicht akzeptiert hat.
+
 ## Aktueller Stand
 
 Verifiziert wurden in diesem Repo:
 
 - End-to-end gegen `deepseek-ocr-server` auf CPU
+- Voll-Lauf eines realen 35-Seiten-PDFs bis zur finalen Markdown-Datei
 - OpenAI-kompatibler `/v1/chat/completions`-Pfad
 - Markdown-Output mit YAML-Frontmatter, TOC, Cache und Partial-Output
 

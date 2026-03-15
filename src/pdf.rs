@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use base64::Engine;
@@ -93,7 +94,7 @@ pub async fn rasterize_page(input: &Path, page: &PageSpec) -> Result<DynamicImag
         )));
     }
 
-    let image_path = temp_png_path(prefix, page.number);
+    let image_path = find_rendered_png(&prefix).await?;
     let bytes = fs::read(image_path).await?;
     let image = image::load_from_memory_with_format(&bytes, ImageFormat::Png)?;
     Ok(image)
@@ -119,9 +120,28 @@ pub fn encode_page_as_webp(image: &DynamicImage) -> Result<EncodedPage, AppError
     })
 }
 
-fn temp_png_path(prefix: PathBuf, page_number: u32) -> PathBuf {
+async fn find_rendered_png(prefix: &Path) -> Result<PathBuf, AppError> {
     let parent = prefix.parent().unwrap_or_else(|| Path::new("."));
-    parent.join(format!("page-{page_number}.png"))
+    let prefix_name = prefix
+        .file_name()
+        .and_then(OsStr::to_str)
+        .ok_or_else(|| AppError::PdfProcessingError("Ungueltiger Temp-Dateiname".into()))?;
+    let expected_prefix = format!("{prefix_name}-");
+    let mut entries = fs::read_dir(parent).await?;
+
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        let Some(file_name) = path.file_name().and_then(OsStr::to_str) else {
+            continue;
+        };
+        if file_name.starts_with(&expected_prefix) && path.extension() == Some(OsStr::new("png")) {
+            return Ok(path);
+        }
+    }
+
+    Err(AppError::PdfProcessingError(
+        "Gerenderte PNG-Datei wurde nicht gefunden".into(),
+    ))
 }
 
 fn calculate_adaptive_dpi(page: &PageSpec) -> u32 {
